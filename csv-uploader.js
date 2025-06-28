@@ -26,6 +26,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const statusMessage = document.getElementById("statusMessage")
   const delaySlider = document.getElementById("delaySlider")
   const delayValue = document.getElementById("delayValue")
+  const skipProxyButton = document.getElementById("skipProxyButton")
+  const blockedProxiesContainer = document.getElementById("blockedProxiesContainer")
+  const blockedProxiesList = document.getElementById("blockedProxiesList")
 
   // Column mapping selects
   const fullNameColumn = document.getElementById("fullNameColumn")
@@ -161,6 +164,18 @@ document.addEventListener("DOMContentLoaded", () => {
       exportButton.addEventListener("click", exportResults)
     }
 
+    if (skipProxyButton) {
+      skipProxyButton.addEventListener("click", () => {
+        showStatus("Switching to the next proxy...", "info")
+        skipProxyButton.style.display = "none" // Hide button after click
+        startButton.style.display = "inline-flex"
+        processingActive = true
+        chrome.storage.local.set({ processingActive: true }, () => {
+          processNextRecord()
+        })
+      })
+    }
+
     // Load CAPTCHA settings
     if (typeof chrome !== "undefined" && chrome.runtime) {
       chrome.runtime.sendMessage({ type: "get_captcha_settings" }, (response) => {
@@ -180,6 +195,24 @@ document.addEventListener("DOMContentLoaded", () => {
           })
         })
       }
+
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.type === "proxy_failed_show_resume") {
+          showStatus(`Proxy failed. Resuming with ${message.nextProxy.host}:${message.nextProxy.port}.`, "error")
+          startButton.style.display = "none"
+          skipProxyButton.textContent = "Resume with Next Proxy"
+          skipProxyButton.style.display = "inline-flex"
+          processingActive = false // Ensure it's paused
+        } else if (message.type === "no_more_proxies") {
+          showStatus("All proxies have failed. Processing stopped.", "error")
+          processingActive = false
+          startButton.style.display = "none"
+          skipProxyButton.style.display = "none"
+        } else if (message.type === "update_blocked_proxies_list") {
+          blockedProxiesContainer.classList.remove("hidden")
+          blockedProxiesList.value = message.blockedProxies.map((p) => `${p.host}:${p.port}`).join("\n")
+        }
+      })
     }
 
     // Add direct upload button event listener
@@ -816,6 +849,7 @@ document.addEventListener("DOMContentLoaded", () => {
       startButton.innerHTML =
         'Pause Processing <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" style="margin-right: 0; margin-left: 6px;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>'
       progressContainer.style.display = "block"
+      skipProxyButton.style.display = "none"
 
       // If we've processed all records, show export button
       if (currentProcessingIndex >= processedData.length) {

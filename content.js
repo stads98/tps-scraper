@@ -96,6 +96,8 @@ function detectBlockedProxy() {
     "blocked",
     "403 forbidden",
     "access to this page has been denied",
+    "http error 407",
+    "this page isn’t working",
   ]
 
   // Check if any of the blocking indicators are present

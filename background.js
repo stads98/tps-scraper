@@ -729,73 +729,64 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true })
     return true
   } else if (message.type === "proxy_blocked") {
-    // Handle proxy blocked notification
-    console.log("Proxy blocked detected at URL:", message.url)
+    console.log("Proxy blocked/failed detected.")
+    // Pause processing
+    chrome.storage.local.set({ processingActive: false })
 
-    // Get the current proxy and processing data
-    chrome.storage.local.get(
-      ["currentProxy", "proxyData", "currentProcessingIndex", "currentProcessingTab"],
-      (result) => {
-        if (result.currentProxy) {
-          // Add the current proxy to the blocked list
-          const proxy = result.currentProxy
+    // Mark current proxy as blocked and get the next one
+    chrome.storage.local.get(["currentProxy", "blockedProxies", "proxyData"], (result) => {
+      let { currentProxy, blockedProxies, proxyData } = result
+      blockedProxies = blockedProxies || []
 
-          // Check if this proxy is already in the blocked list
-          const alreadyBlocked = blockedProxies.some(
-            (blocked) => blocked.host === proxy.host && blocked.port === proxy.port,
-          )
-
-          if (!alreadyBlocked) {
-            blockedProxies.push(proxy)
-
-            // Save the updated blocked proxies list
-            chrome.storage.local.set({ blockedProxies }, () => {
-              console.log(`Proxy ${proxy.host}:${proxy.port} marked as blocked`)
-            })
-          }
-
-          // Get a new proxy
-          if (result.proxyData && result.proxyData.length > 0) {
-            const nextProxy = proxyHandler.getNextProxy(result.proxyData, blockedProxies)
-
-            if (nextProxy) {
-              // Apply the new proxy
-              applyAndTrackProxy(nextProxy).then((success) => {
-                if (success) {
-                  console.log(`Applied new proxy: ${nextProxy.host}:${nextProxy.port}`)
-
-                  // Retry the current URL
-                  retryCurrentUrl(result.currentProcessingIndex, result.currentProcessingTab)
-                } else {
-                  console.error("Failed to apply new proxy")
-                  // Try without proxy
-                  proxyHandler.clearProxy().then(() => {
-                    chrome.storage.local.set({ currentProxy: null })
-                    retryCurrentUrl(result.currentProcessingIndex, result.currentProcessingTab)
-                  })
-                }
-              })
-            } else {
-              console.log("No more proxies available, continuing without proxy")
-              // Clear proxy settings
-              proxyHandler.clearProxy().then(() => {
-                chrome.storage.local.set({ currentProxy: null })
-                retryCurrentUrl(result.currentProcessingIndex, result.currentProcessingTab)
-              })
-            }
-          } else {
-            console.log("No proxy data available, continuing without proxy")
-            // Clear proxy settings
-            proxyHandler.clearProxy().then(() => {
-              chrome.storage.local.set({ currentProxy: null })
-              retryCurrentUrl(result.currentProcessingIndex, result.currentProcessingTab)
-            })
-          }
+      if (currentProxy) {
+        const alreadyBlocked = blockedProxies.some((p) => p.host === currentProxy.host && p.port === currentProxy.port)
+        if (!alreadyBlocked) {
+          blockedProxies.push(currentProxy)
         }
-      },
-    )
+      }
+
+      // Get the next available proxy
+      const nextProxy = proxyHandler.getNextProxy(proxyData, blockedProxies)
+
+      // Save the new state
+      chrome.storage.local.set({ blockedProxies }, () => {
+        // Notify UI of the blocked list
+        chrome.tabs.query({ url: "*://*/csv-uploader.html" }, (tabs) => {
+          if (tabs.length > 0) {
+            chrome.tabs.sendMessage(tabs[0].id, { type: "update_blocked_proxies_list", blockedProxies })
+          }
+        })
+      })
+
+      if (nextProxy) {
+        // Apply the next proxy immediately
+        applyAndTrackProxy(nextProxy).then(() => {
+          // Notify UI to show resume button with info about the new proxy
+          chrome.tabs.query({ url: "*://*/csv-uploader.html" }, (tabs) => {
+            if (tabs.length > 0) {
+              chrome.tabs.sendMessage(tabs[0].id, { type: "proxy_failed_show_resume", nextProxy: nextProxy })
+            }
+          })
+        })
+      } else {
+        // No more proxies
+        chrome.tabs.query({ url: "*://*/csv-uploader.html" }, (tabs) => {
+          if (tabs.length > 0) {
+            chrome.tabs.sendMessage(tabs[0].id, { type: "no_more_proxies" })
+          }
+        })
+      }
+    })
 
     sendResponse({ success: true })
+    return true
+  } else if (message.type === "resume_processing_after_skip") {
+    // This message comes from the skip button in the UI
+    console.log("Resuming processing after user skipped failed proxy.")
+    chrome.storage.local.set({ processingActive: true }, () => {
+      // The UI will call processNextRecord, which will get a new proxy.
+      sendResponse({ success: true })
+    })
     return true
   } else if (message.type === "get_next_proxy") {
     // Get the next available proxy
