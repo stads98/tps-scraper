@@ -824,6 +824,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: false, error: "No proxy provided." })
     }
     return true // async
+  } else if (message.type === "disconnect_proxy") {
+    proxyHandler.clearProxy().then((success) => {
+      if (success) {
+        console.log("Proxy disconnected by user.")
+        sendResponse({ success: true })
+      } else {
+        console.error("Failed to disconnect proxy on user request.")
+        sendResponse({ success: false, message: "Could not clear proxy settings." })
+      }
+    })
+    return true // async
   }
 })
 

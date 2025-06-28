@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const csvButton = document.getElementById("csv-btn")
   const captchaDelaySelect = document.getElementById("captcha-delay")
   const exportProcessedCsvButton = document.getElementById("export-processed-csv-btn")
+  const disconnectProxyButton = document.getElementById("disconnect-proxy-btn")
 
   // Function to show loading state
   function showLoading() {
@@ -16,6 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
     clearButton.disabled = true
     csvButton.disabled = true
     exportProcessedCsvButton.disabled = true
+    disconnectProxyButton.disabled = true
   }
 
   // Function to hide loading state
@@ -25,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
     clearButton.disabled = false
     csvButton.disabled = false
     exportProcessedCsvButton.disabled = false
+    disconnectProxyButton.disabled = false
   }
 
   // Function to show status message
@@ -141,6 +144,19 @@ document.addEventListener("DOMContentLoaded", () => {
         showStatus("Processed data exported successfully!")
       } else {
         showStatus(`Export failed: ${response?.message || "Unknown error"}`, true)
+      }
+    })
+  })
+
+  // Add event listener for the disconnect proxy button
+  disconnectProxyButton.addEventListener("click", () => {
+    showLoading()
+    chrome.runtime.sendMessage({ type: "disconnect_proxy" }, (response) => {
+      hideLoading()
+      if (response?.success) {
+        showStatus("Proxy disconnected successfully!")
+      } else {
+        showStatus(`Failed to disconnect proxy: ${response?.message || "Unknown error"}`, true)
       }
     })
   })
