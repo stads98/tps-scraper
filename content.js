@@ -16,6 +16,9 @@ function detectCloudflareCaptcha() {
     return false
   }
 
+  const pageText = document.body.innerText.toLowerCase()
+  const hasPressAndHold = pageText.includes("verify you are human") && (pageText.includes("press and hold") || pageText.includes("press & hold"))
+
   // Strong indicators - these are almost certainly CAPTCHA pages
   const strongIndicators = [
     !!document.getElementById("captchaForm"),
@@ -26,6 +29,7 @@ function detectCloudflareCaptcha() {
     !!document.querySelector("[id^='cf-chl-widget']"),
     !!document.querySelector("#manualSubmit"),
     document.title === "Captcha",
+    hasPressAndHold,
   ]
 
   // Check if any strong indicators are present
@@ -55,6 +59,7 @@ function detectCloudflareCaptcha() {
     isCaptchaTitle: document.title === "Captcha",
     isCaptchaUrl: isCaptchaUrl,
     hasStrongIndicator: hasStrongIndicator,
+    hasPressAndHold: hasPressAndHold,
   })
 
   // For a positive detection, require either:
