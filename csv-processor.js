@@ -237,12 +237,9 @@ if (typeof window.csvProcessor === "undefined") {
 
         return result
       }),
-    convertToCSV: (data, headers) => {
-      // Add our custom headers if they don't exist
-      const allHeaders = [...headers]
-
-      // Add TPS data headers if they don't exist
-      const tpsHeaders = [
+    convertToCSV: (data, originalHeaders) => {
+      // Define the headers for the new data we added.
+      const tpsDataHeaders = [
         "TPS_Name",
         "TPS_Location",
         "TPS_City",
@@ -256,36 +253,44 @@ if (typeof window.csvProcessor === "undefined") {
         "TPS_Email2",
         "TPS_Email3",
         "TPS_ScrapedAt",
-      ]
+      ];
 
-      tpsHeaders.forEach((header) => {
-        if (!allHeaders.includes(header)) {
-          allHeaders.push(header)
+      // The final list of headers is the original ones plus our new ones.
+      const finalHeaders = [...originalHeaders];
+      tpsDataHeaders.forEach(h => {
+          if (!finalHeaders.includes(h)) {
+              finalHeaders.push(h);
+          }
+      });
+
+      // Also include the internal processing fields for reference
+      if (!finalHeaders.includes('_tpsSearchUrl')) finalHeaders.push('_tpsSearchUrl');
+      if (!finalHeaders.includes('_tpsProcessed')) finalHeaders.push('_tpsProcessed');
+
+      // Helper to escape values for CSV
+      const escapeCsvValue = (value) => {
+        if (value === null || value === undefined) {
+          return '""';
         }
-      })
+        const stringValue = String(value);
+        if (stringValue.includes('"') || stringValue.includes(',') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      };
 
-      // Add processing headers if they don't exist
-      if (!allHeaders.includes("_tpsSearchUrl")) {
-        allHeaders.push("_tpsSearchUrl")
-      }
-      if (!allHeaders.includes("_tpsProcessed")) {
-        allHeaders.push("_tpsProcessed")
-      }
+      // Create the header row for the CSV file.
+      const headerRow = finalHeaders.map(escapeCsvValue).join(',');
 
-      // Create CSV header row
-      let csvContent = allHeaders.map((header) => `"${header}"`).join(",") + "\n"
+      // Create the data rows.
+      const dataRows = data.map(row => {
+        return finalHeaders.map(header => {
+          return escapeCsvValue(row[header]);
+        }).join(',');
+      });
 
-      // Add data rows
-      data.forEach((row) => {
-        const rowValues = allHeaders.map((header) => {
-          const value = row[header] !== undefined ? row[header] : ""
-          // Escape quotes and wrap in quotes if needed
-          return `"${String(value).replace(/"/g, '""')}"`
-        })
-        csvContent += rowValues.join(",") + "\n"
-      })
-
-      return csvContent
+      // Combine header and data rows.
+      return [headerRow, ...dataRows].join('\n');
     },
     createSearchUrl,
     extractNames,
@@ -535,12 +540,9 @@ if (typeof window.csvProcessor === "undefined") {
   }
 
   // Function to convert processed data back to CSV
-  function convertToCSV(data, headers) {
-    // Add our custom headers if they don't exist
-    const allHeaders = [...headers]
-
-    // Add TPS data headers if they don't exist
-    const tpsHeaders = [
+  function convertToCSV(data, originalHeaders) {
+    // Define the headers for the new data we added.
+    const tpsDataHeaders = [
       "TPS_Name",
       "TPS_Location",
       "TPS_City",
@@ -554,36 +556,44 @@ if (typeof window.csvProcessor === "undefined") {
       "TPS_Email2",
       "TPS_Email3",
       "TPS_ScrapedAt",
-    ]
+    ];
 
-    tpsHeaders.forEach((header) => {
-      if (!allHeaders.includes(header)) {
-        allHeaders.push(header)
+    // The final list of headers is the original ones plus our new ones.
+    const finalHeaders = [...originalHeaders];
+    tpsDataHeaders.forEach(h => {
+        if (!finalHeaders.includes(h)) {
+            finalHeaders.push(h);
+        }
+    });
+
+    // Also include the internal processing fields for reference
+    if (!finalHeaders.includes('_tpsSearchUrl')) finalHeaders.push('_tpsSearchUrl');
+    if (!finalHeaders.includes('_tpsProcessed')) finalHeaders.push('_tpsProcessed');
+
+    // Helper to escape values for CSV
+    const escapeCsvValue = (value) => {
+      if (value === null || value === undefined) {
+        return '""';
       }
-    })
+      const stringValue = String(value);
+      if (stringValue.includes('"') || stringValue.includes(',') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
 
-    // Add processing headers if they don't exist
-    if (!allHeaders.includes("_tpsSearchUrl")) {
-      allHeaders.push("_tpsSearchUrl")
-    }
-    if (!allHeaders.includes("_tpsProcessed")) {
-      allHeaders.push("_tpsProcessed")
-    }
+    // Create the header row for the CSV file.
+    const headerRow = finalHeaders.map(escapeCsvValue).join(',');
 
-    // Create CSV header row
-    let csvContent = allHeaders.map((header) => `"${header}"`).join(",") + "\n"
+    // Create the data rows.
+    const dataRows = data.map(row => {
+      return finalHeaders.map(header => {
+        return escapeCsvValue(row[header]);
+      }).join(',');
+    });
 
-    // Add data rows
-    data.forEach((row) => {
-      const rowValues = allHeaders.map((header) => {
-        const value = row[header] !== undefined ? row[header] : ""
-        // Escape quotes and wrap in quotes if needed
-        return `"${String(value).replace(/"/g, '""')}"`
-      })
-      csvContent += rowValues.join(",") + "\n"
-    })
-
-    return csvContent
+    // Combine header and data rows.
+    return [headerRow, ...dataRows].join('\n');
   }
 
   // Export functions for use in other files

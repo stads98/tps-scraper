@@ -354,42 +354,47 @@ function cleanupAfterCaptchaSolved(observer, interval, notification) {
 }
 
 // Add this function to show the current proxy status
-function showProxyStatus(proxy) {
+function showProxyPopup(proxy) {
   // Remove any existing proxy status indicator
-  const existingStatus = document.getElementById("tps-proxy-status")
+  const existingStatus = document.getElementById("tps-proxy-status-popup")
   if (existingStatus) {
     existingStatus.remove()
   }
 
   // Create a new status indicator
   const statusElement = document.createElement("div")
-  statusElement.id = "tps-proxy-status"
+  statusElement.id = "tps-proxy-status-popup"
   statusElement.style.position = "fixed"
-  statusElement.style.bottom = "10px"
-  statusElement.style.right = "10px"
-  statusElement.style.backgroundColor = proxy ? "#2196F3" : "#F44336"
+  statusElement.style.top = "20px"
+  statusElement.style.left = "50%"
+  statusElement.style.transform = "translateX(-50%)"
+  statusElement.style.backgroundColor = proxy ? "rgba(33, 150, 243, 0.9)" : "rgba(244, 67, 54, 0.9)"
   statusElement.style.color = "white"
-  statusElement.style.padding = "8px 12px"
-  statusElement.style.borderRadius = "4px"
-  statusElement.style.fontSize = "12px"
+  statusElement.style.padding = "12px 20px"
+  statusElement.style.borderRadius = "8px"
+  statusElement.style.fontSize = "14px"
   statusElement.style.fontWeight = "bold"
-  statusElement.style.zIndex = "9999"
-  statusElement.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)"
+  statusElement.style.zIndex = "10000"
+  statusElement.style.boxShadow = "0 4px 12px rgba(0,0,0,0.25)"
+  statusElement.style.transition = "opacity 0.5s ease-out"
 
   if (proxy) {
-    statusElement.textContent = `Proxy: ${proxy.host}:${proxy.port}`
+    statusElement.textContent = `Using Proxy: ${proxy.host}:${proxy.port}`
   } else {
     statusElement.textContent = "No Proxy Active"
   }
 
   document.body.appendChild(statusElement)
 
-  // Auto-hide after 10 seconds
+  // Auto-hide after 4 seconds
   setTimeout(() => {
-    if (statusElement.parentNode) {
-      statusElement.style.opacity = "0.5"
-    }
-  }, 10000)
+    statusElement.style.opacity = "0"
+    setTimeout(() => {
+      if (statusElement.parentNode) {
+        statusElement.remove()
+      }
+    }, 500) // wait for fade out transition
+  }, 4000)
 }
 
 // Add this code to handle proxy change messages
@@ -397,7 +402,7 @@ if (typeof chrome !== "undefined" && chrome.runtime) {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "proxy_changed") {
       console.log("Received proxy change notification:", message.proxy)
-      showProxyStatus(message.proxy)
+      showProxyPopup(message.proxy)
       sendResponse({ success: true })
     }
     return true
@@ -412,9 +417,9 @@ window.addEventListener("load", () => {
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.local.get(["currentProxy"], (result) => {
         if (result.currentProxy) {
-          showProxyStatus(result.currentProxy)
+          showProxyPopup(result.currentProxy)
         } else {
-          showProxyStatus(null)
+          showProxyPopup(null)
         }
       })
     }

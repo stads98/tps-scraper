@@ -324,9 +324,8 @@ document.addEventListener("DOMContentLoaded", () => {
     proxyPreviewTable.appendChild(thead)
 
     const tbody = document.createElement("tbody")
-    // Create data rows (limit to 5 for preview)
-    const previewData = proxies.slice(0, 5)
-    previewData.forEach((proxy) => {
+    // Create data rows for all proxies
+    proxies.forEach((proxy) => {
       const tr = document.createElement("tr")
 
       const tdHost = document.createElement("td")
@@ -937,75 +936,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
         console.log(`Processing record ${currentProcessingIndex + 1}: ${record._tpsSearchUrl}`)
 
-        // Store the current processing URL and index
-        chrome.storage.local.set(
-          {
-            currentProcessingUrl: record._tpsSearchUrl,
-            currentProcessingIndex: currentProcessingIndex,
-            processingActive: true,
-          },
-          () => {
-            // Open the URL in a new tab
-            try {
-              chrome.tabs.create({ url: record._tpsSearchUrl, active: true }, (tab) => {
-                if (chrome.runtime.lastError) {
-                  console.error("Error creating tab:", chrome.runtime.lastError)
-                  showStatus(`Error opening URL: ${chrome.runtime.lastError.message}`, "error")
-                  return
-                }
+        // Get the current tab ID to be used as the 'previous' tab later
+        chrome.storage.local.get('currentProcessingTab', (result) => {
+          const previousTabId = result.currentProcessingTab;
 
-                console.log(`Created tab with ID: ${tab.id} for URL: ${record._tpsSearchUrl}`)
+          // Store the current processing URL and index
+          chrome.storage.local.set(
+            {
+              currentProcessingUrl: record._tpsSearchUrl,
+              currentProcessingIndex: currentProcessingIndex,
+              processingActive: true,
+            },
+            () => {
+              // Open the URL in a new tab
+              try {
+                chrome.tabs.create({ url: record._tpsSearchUrl, active: true }, (newTab) => {
+                  if (chrome.runtime.lastError) {
+                    console.error("Error creating tab:", chrome.runtime.lastError)
+                    showStatus(`Error opening URL: ${chrome.runtime.lastError.message}`, "error")
+                    return
+                  }
 
-                // Store the tab ID for later use
-                chrome.storage.local.set({
-                  currentProcessingTab: tab.id,
+                  console.log(`Created tab with ID: ${newTab.id} for URL: ${record._tpsSearchUrl}`)
+
+                  // Store the new tab ID and the previous tab ID
+                  chrome.storage.local.set({
+                    currentProcessingTab: newTab.id,
+                    previousProcessingTab: previousTabId,
+                  });
+
+                  // Increment the index
+                  currentProcessingIndex++
+
+                  // Schedule the next record to be processed after a delay
+                  setTimeout(processNextRecord, delaySeconds * 1000)
                 })
-
-                // Increment the index
-                currentProcessingIndex++
-
-                // Schedule the next record to be processed after a delay
-                setTimeout(processNextRecord, delaySeconds * 1000)
-              })
-            } catch (error) {
-              console.error("Exception creating tab:", error)
-              showStatus(`Error: ${error.message}`, "error")
-
-              // If direct tab creation fails, try using a message to the background script
-              if (typeof chrome !== "undefined" && chrome.runtime) {
-                chrome.runtime.sendMessage(
-                  {
-                    type: "open_url",
-                    url: record._tpsSearchUrl,
-                  },
-                  (response) => {
-                    if (response && response.success) {
-                      console.log(`Created tab with ID: ${response.tabId} via background script`)
-
-                      // Store the tab ID for later use
-                      chrome.storage.local.set({
-                        currentProcessingTab: response.tabId,
-                      })
-
-                      // Increment the index
-                      currentProcessingIndex++
-
-                      // Schedule the next record to be processed after a delay
-                      setTimeout(processNextRecord, delaySeconds * 1000)
-                    } else {
-                      console.error("Error opening URL via background script:", response?.error)
-                      showStatus(`Error opening URL: ${response?.error || "Unknown error"}`, "error")
-
-                      // Try to continue with the next record
-                      currentProcessingIndex++
-                      setTimeout(processNextRecord, delaySeconds * 1000)
-                    }
-                  },
-                )
+              } catch (error) {
+                console.error("Exception creating tab:", error)
+                showStatus(`Error: ${error.message}`, "error")
               }
-            }
-          },
-        )
+            },
+          )
+        });
       } else {
         // If chrome is not defined, just log the URL and increment the index
         const record = processedData[currentProcessingIndex]

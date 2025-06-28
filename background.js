@@ -994,7 +994,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
             // Close the previous tab if it exists and is different from the current tab
             if (result.previousProcessingTab && result.previousProcessingTab !== tabId) {
-              closeTab(result.previousProcessingTab)
+              setTimeout(() => closeTab(result.previousProcessingTab), 2000)
             }
 
             // The content script will handle scraping the data
@@ -1013,7 +1013,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
             // Close the previous tab if it exists and is different from the current tab
             if (result.previousProcessingTab && result.previousProcessingTab !== tabId) {
-              closeTab(result.previousProcessingTab)
+              setTimeout(() => closeTab(result.previousProcessingTab), 2000)
             }
 
             // Inject a script to help the user select the correct profile
