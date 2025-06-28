@@ -60,9 +60,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let processingActive = false
   let delaySeconds = 5
 
-  // Maximum number of records to process at once to avoid storage quota issues
-  const MAX_BATCH_SIZE = 100
-
   // Initialize chrome if it's not defined
   if (typeof chrome === "undefined") {
     window.chrome = {}
@@ -873,13 +870,12 @@ document.addEventListener("DOMContentLoaded", () => {
     currentProcessingIndex = 0
     processingActive = false
 
-    // Store only the headers and a small batch of data to avoid quota issues
+    // Store the entire processed data object
     if (typeof chrome !== "undefined" && chrome.storage) {
       chrome.storage.local.set({
         originalCsvHeaders: csvData.headers,
-        // Only store a small batch of data to avoid quota issues
         csvProcessingData: {
-          data: processedData.slice(0, MAX_BATCH_SIZE),
+          data: processedData,
           totalRecords: processedData.length,
         },
       })
@@ -1138,18 +1134,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Add a function to export the results to a CSV file
   function exportResults() {
-    // Add the original CSV headers to the processed data
     if (typeof chrome !== "undefined" && chrome.storage) {
-      chrome.storage.local.get(["originalCsvHeaders"], (result) => {
-        const originalCsvHeaders = result.originalCsvHeaders || csvData.headers
+      // Get the latest, enriched data from storage
+      chrome.storage.local.get(["originalCsvHeaders", "csvProcessingData"], (result) => {
+        if (!result.csvProcessingData || !result.csvProcessingData.data) {
+          showStatus("No processed data found to export.", "error")
+          return
+        }
 
-        // Convert the processed data to a CSV string
-        const csvString = window.csvProcessor.convertToCSV(processedData, originalCsvHeaders)
+        const originalCsvHeaders = result.originalCsvHeaders || (csvData ? csvData.headers : [])
+        const finalData = result.csvProcessingData.data
+
+        // Convert the final data to a CSV string
+        const csvString = window.csvProcessor.convertToCSV(finalData, originalCsvHeaders)
 
         // Create a download link
         const downloadLink = document.createElement("a")
         downloadLink.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csvString)
-        downloadLink.download = "tps_results.csv"
+        downloadLink.download = "tps_results_enriched.csv"
 
         // Add the link to the document and click it
         document.body.appendChild(downloadLink)
@@ -1159,19 +1161,17 @@ document.addEventListener("DOMContentLoaded", () => {
         document.body.removeChild(downloadLink)
       })
     } else {
-      // If chrome storage is not available, just use the current headers
+      // Fallback for non-chrome environment
+      if (!processedData) {
+        showStatus("No processed data to export.", "error")
+        return
+      }
       const csvString = window.csvProcessor.convertToCSV(processedData, csvData.headers)
-
-      // Create a download link
       const downloadLink = document.createElement("a")
       downloadLink.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csvString)
-      downloadLink.download = "tps_results.csv"
-
-      // Add the link to the document and click it
+      downloadLink.download = "tps_results_enriched.csv"
       document.body.appendChild(downloadLink)
       downloadLink.click()
-
-      // Remove the link from the document
       document.body.removeChild(downloadLink)
     }
   }
