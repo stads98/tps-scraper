@@ -455,7 +455,7 @@ window.addEventListener("load", () => {
 
   // Helper function to find a section container by its header text
   function findSectionContainer(headerText) {
-    const headers = Array.from(document.querySelectorAll("h2, h3, h4, .card-header, .report-header"))
+    const headers = Array.from(document.querySelectorAll("h2, h3, h4, h5, .card-header, .report-header"))
     const targetHeader = headers.find((h) => h.innerText.trim().toLowerCase() === headerText.toLowerCase())
 
     if (targetHeader) {
@@ -466,11 +466,23 @@ window.addEventListener("load", () => {
   }
 
   // --- Scrape Basic Info ---
-  const nameElement = document.querySelector('h1[itemprop="name"]')
+  const nameElement = document.querySelector('h1.oh1, h1[itemprop="name"]')
   const name = nameElement ? nameElement.innerText.trim() : "N/A"
 
   const locationElement = document.querySelector('span[itemprop="addressLocality"]')
-  const location = locationElement ? locationElement.innerText.trim() : "N/A"
+  let location = locationElement ? locationElement.innerText.trim() : "N/A"
+
+  // Fallback for location from bio if not found
+  if (location === "N/A") {
+      const bioTextElement = Array.from(document.querySelectorAll('p, div')).find(el => el.innerText.includes(' years old and was born in '));
+      if (bioTextElement) {
+          const bioText = bioTextElement.innerText;
+          const locationMatch = bioText.match(/in\s(.*?,\s*[A-Z]{2})/);
+          if (locationMatch && locationMatch[1]) {
+              location = locationMatch[1];
+          }
+      }
+  }
 
   // --- Scrape Address ---
   let address = "N/A"
@@ -478,11 +490,13 @@ window.addEventListener("load", () => {
   if (addressSection) {
     const addressLink = addressSection.querySelector('a[href*="/address/"]')
     if (addressLink) {
-      // The address is often split into multiple lines within the link
+      // The address is often split into multiple lines within the link, sometimes with <br>
       address = Array.from(addressLink.childNodes)
-        .map((node) => (node.nodeType === Node.TEXT_NODE ? node.textContent.trim() : ""))
+        .map((node) => (node.nodeType === Node.TEXT_NODE ? node.textContent.trim() : ' '))
         .filter(Boolean)
-        .join(", ")
+        .join(" ")
+        .replace(/\s+/g, ' ') // Clean up extra spaces
+        .trim();
     }
   }
 
@@ -490,9 +504,9 @@ window.addEventListener("load", () => {
   let wirelessPhones = []
   const phoneSection = findSectionContainer("Phone Numbers")
   if (phoneSection) {
-    const phoneRows = Array.from(phoneSection.querySelectorAll(".row.pl-sm-2 > div"))
+    const phoneRows = Array.from(phoneSection.querySelectorAll(".row.pl-sm-2 > div, .col-12.col-md-6"));
     phoneRows.forEach((row) => {
-      const typeElement = row.querySelector("span.text-muted")
+      const typeElement = row.querySelector("span.smaller, span.text-muted")
       if (typeElement && typeElement.innerText.trim().toLowerCase().includes("wireless")) {
         const numberElement = row.querySelector('a[href*="tel:"]')
         if (numberElement) {
@@ -512,10 +526,11 @@ window.addEventListener("load", () => {
   let emails = []
   const emailSection = findSectionContainer("Email Addresses")
   if (emailSection) {
-    const emailElements = Array.from(emailSection.querySelectorAll('a[href*="mailto:"]'))
+    // Emails can be in links or just divs
+    const emailElements = Array.from(emailSection.querySelectorAll('a[href*="mailto:"], .row.pl-sm-2 > .col > div'));
     emailElements.forEach((el) => {
       const emailText = el.innerText.trim()
-      if (emailText && !emailText.toLowerCase().includes("support@truepeoplesearch.com")) {
+      if (emailText && emailText.includes('@') && !emailText.toLowerCase().includes("support@truepeoplesearch.com")) {
         emails.push(emailText)
       }
     })
@@ -552,10 +567,10 @@ window.addEventListener("load", () => {
     ScrapedAt: new Date().toISOString(),
   }
 
-  console.log("Scraped data (new logic):", data)
+  console.log("Scraped data (new logic):", data);
 
-  // Send data to background script
-  if (typeof chrome !== "undefined" && typeof chrome.runtime !== "undefined") {
+  // Send data to background script only if a name was found
+  if (typeof chrome !== "undefined" && typeof chrome.runtime !== "undefined" && name !== "N/A") {
     chrome.runtime.sendMessage({ type: "store_data", data }, (response) => {
       if (response?.success) {
         console.log("Data sent to background.js for storage.")
@@ -584,6 +599,10 @@ window.addEventListener("load", () => {
       }
     })
   } else {
-    console.warn("Chrome runtime is not available. The extension may not be running in a Chrome environment.")
+    if (name === "N/A") {
+        console.warn("Scraping did not find a name. Data not sent.");
+    } else {
+        console.warn("Chrome runtime is not available. The extension may not be running in a Chrome environment.")
+    }
   }
-})()
+})();

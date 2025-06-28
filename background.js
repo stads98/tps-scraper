@@ -464,10 +464,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     // Mark this record as processed
                     csvData[result.currentProcessingIndex]._tpsProcessed = true
 
-                    // Add the scraped data to the record
-                    Object.keys(message.data).forEach((key) => {
-                      csvData[result.currentProcessingIndex][`TPS_${key}`] = message.data[key]
-                    })
+                    // Explicitly add only the desired fields to the record
+                    const scraped = message.data;
+                    csvData[result.currentProcessingIndex]['TPS_Name'] = scraped.Name;
+                    csvData[result.currentProcessingIndex]['TPS_Address'] = scraped.Address;
+                    csvData[result.currentProcessingIndex]['TPS_Phone1'] = scraped.Phone1;
+                    csvData[result.currentProcessingIndex]['TPS_Phone2'] = scraped.Phone2;
+                    csvData[result.currentProcessingIndex]['TPS_Phone3'] = scraped.Phone3;
+                    csvData[result.currentProcessingIndex]['TPS_Phone4'] = scraped.Phone4;
+                    csvData[result.currentProcessingIndex]['TPS_Email1'] = scraped.Email1;
+                    csvData[result.currentProcessingIndex]['TPS_Email2'] = scraped.Email2;
+                    csvData[result.currentProcessingIndex]['TPS_Email3'] = scraped.Email3;
+                    csvData[result.currentProcessingIndex]['TPS_ScrapedAt'] = scraped.ScrapedAt;
 
                     // Save the updated CSV data
                     chrome.storage.local.set({
