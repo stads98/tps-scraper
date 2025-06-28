@@ -451,126 +451,238 @@ window.addEventListener("load", () => {
     return // Exit early and don't try to scrape data
   }
 
-  // --- NEW ROBUST SCRAPING LOGIC ---
+  // Rest of the original content script follows...
 
-  // Helper function to find a section container by its header text
-  function findSectionContainer(headerText) {
-    const headers = Array.from(document.querySelectorAll("h2, h3, h4, h5, .card-header, .report-header"))
-    const targetHeader = headers.find((h) => h.innerText.trim().toLowerCase() === headerText.toLowerCase())
-
-    if (targetHeader) {
-      // Find the closest common ancestor that acts as a container for the section
-      return targetHeader.closest(".card, .report-block")
+  // Helper function to safely extract text from a selector
+  function extractText(selector, fallback = "") {
+    try {
+      const element = document.querySelector(selector)
+      return element ? element.innerText.trim() : fallback
+    } catch (error) {
+      console.error(`Error extracting text from ${selector}:`, error)
+      return fallback
     }
-    return null
   }
 
-  // --- Scrape Basic Info ---
-  const nameElement = document.querySelector('h1.oh1, h1[itemprop="name"]')
-  const name = nameElement ? nameElement.innerText.trim() : "N/A"
-
-  const locationElement = document.querySelector('span[itemprop="addressLocality"]')
-  let location = locationElement ? locationElement.innerText.trim() : "N/A"
-
-  // Fallback for location from bio if not found
-  if (location === "N/A") {
-      const bioTextElement = Array.from(document.querySelectorAll('p, div')).find(el => el.innerText.includes(' years old and was born in '));
-      if (bioTextElement) {
-          const bioText = bioTextElement.innerText;
-          const locationMatch = bioText.match(/in\s(.*?,\s*[A-Z]{2})/);
-          if (locationMatch && locationMatch[1]) {
-              location = locationMatch[1];
-          }
+  // Helper function to extract data using multiple possible selectors
+  function extractWithFallbacks(selectors, fallback = "") {
+    for (const selector of selectors) {
+      const text = extractText(selector)
+      if (text && text !== "") {
+        return text
       }
-  }
-
-  // --- Scrape Address ---
-  let address = "N/A"
-  const addressSection = findSectionContainer("Current Address")
-  if (addressSection) {
-    const addressLink = addressSection.querySelector('a[href*="/address/"]')
-    if (addressLink) {
-      // The address is often split into multiple lines within the link, sometimes with <br>
-      address = Array.from(addressLink.childNodes)
-        .map((node) => (node.nodeType === Node.TEXT_NODE ? node.textContent.trim() : ' '))
-        .filter(Boolean)
-        .join(" ")
-        .replace(/\s+/g, ' ') // Clean up extra spaces
-        .trim();
     }
+    return fallback
   }
 
-  // --- Scrape Phone Numbers (Wireless Only) ---
-  let wirelessPhones = []
-  const phoneSection = findSectionContainer("Phone Numbers")
-  if (phoneSection) {
-    const phoneRows = Array.from(phoneSection.querySelectorAll(".row.pl-sm-2 > div, .col-12.col-md-6"));
-    phoneRows.forEach((row) => {
-      const typeElement = row.querySelector("span.smaller, span.text-muted")
-      if (typeElement && typeElement.innerText.trim().toLowerCase().includes("wireless")) {
-        const numberElement = row.querySelector('a[href*="tel:"]')
-        if (numberElement) {
-          wirelessPhones.push(numberElement.innerText.trim())
+  // Add a function to check if we're processing a CSV file
+  function checkForCSVProcessing() {
+    // Check if chrome is defined
+    if (typeof chrome === "undefined" && typeof chrome.runtime !== "undefined") {
+      chrome.storage.local.get(["currentProcessingTab", "processingActive"], (result) => {
+        if (result.processingActive) {
+          // We're processing a CSV file, show a notification
+          const notification = document.createElement("div")
+          notification.style.position = "fixed"
+          notification.style.top = "10px"
+          notification.style.left = "50%"
+          notification.style.transform = "translateX(-50%)"
+          notification.style.backgroundColor = "#2196F3"
+          notification.style.color = "white"
+          notification.style.padding = "10px 20px"
+          notification.style.borderRadius = "5px"
+          notification.style.zIndex = "9999"
+          notification.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)"
+          notification.style.fontSize = "14px"
+          notification.textContent = "CSV Processing: Click on the correct profile to scrape data"
+
+          document.body.appendChild(notification)
+
+          // Remove the notification after 10 seconds
+          setTimeout(() => {
+            notification.remove()
+          }, 10000)
         }
+      })
+    }
+  }
+
+  // Check if we're processing a CSV file when the page loads
+  window.addEventListener("load", checkForCSVProcessing)
+
+  // Grab data elements from the page
+  const nameElement = document.querySelector("#personDetails > div:nth-child(1) > div > h1")
+  let name = nameElement?.innerText || "N/A"
+  const locationElement = document.querySelector("#personDetails > div:nth-child(1) > div > span:nth-child(5)")
+  const location = locationElement ? locationElement.textContent.replace("Lives in ", "").trim() : "N/A"
+
+  // Extract the current address
+  const addressElement = document.querySelector(
+    "#personDetails > div:nth-child(7) > div.col-12.col-sm-11.pl-sm-1 > div.row.pl-sm-2 > div > div:nth-child(1) > a",
+  )
+  const address = addressElement ? addressElement.innerText.trim() : "N/A" // Get the address or set to "N/A"
+
+  // Parse and adjust the name format
+  const nameParts = name.split(" ")
+  if (nameParts.length === 1) {
+    name = `${nameParts[0]}, N/A` // Single word treated as first name only
+  } else if (nameParts.length === 2 && nameParts[1].length === 1) {
+    name = `${nameParts[0]}, N/A` // Treat middle initial as missing last name
+  } else {
+    name = nameParts.join(" ") // Use the full name if it's complete
+  }
+
+  // Function to get the first valid phone number from a list of selectors
+  function getPhoneNumber(selectors) {
+    for (const selector of selectors) {
+      const element = document.querySelector(selector)
+      if (element) {
+        return element.innerText.trim() // Return the first valid number found
       }
-    })
+    }
+    return "N/A" // Return "N/A" if no valid number is found
   }
 
-  // Fill up to 4 wireless phone numbers, padding with "N/A"
-  const finalPhones = []
-  for (let i = 0; i < 4; i++) {
-    finalPhones.push(wirelessPhones[i] || "N/A")
-  }
+  // Define selectors for mobile phone numbers
+  const mobilePhoneSelectors = [
+    "#personDetails > div:nth-child(7) > div.col-12.col-sm-11.pl-sm-1 > div:nth-child(2) > div:nth-child(1) > div > a > span",
+    "#personDetails > div:nth-child(9) > div.col-12.col-sm-11.pl-sm-1 > div:nth-child(2) > div:nth-child(1) > div > a > span",
+    // Add any other selectors you want to check here
+  ]
 
-  // --- Scrape Emails ---
+  // Extract phone numbers and types
+  const phoneNumbers = [
+    {
+      number:
+        document.querySelector(
+          "#personDetails > div:nth-child(9) > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div > a > span",
+        )?.innerText || "N/A",
+      type:
+        document.querySelector(
+          "#personDetails > div:nth-child(9) > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div > span",
+        )?.innerText || "N/A",
+    },
+    {
+      number:
+        document.querySelector(
+          "#personDetails > div:nth-child(9) > div:nth-child(2) > div:nth-child(2) > div:nth-child(2) > div > a > span",
+        )?.innerText || "N/A",
+      type:
+        document.querySelector(
+          "#personDetails > div:nth-child(9) > div:nth-child(2) > div:nth-child(2) > div:nth-child(2) > div > span",
+        )?.innerText || "N/A",
+    },
+    {
+      number:
+        document.querySelector(
+          "#personDetails > div:nth-child(9) > div:nth-child(2) > div:nth-child(3) > div:nth-child(1) > div > a > span",
+        )?.innerText || "N/A",
+      type:
+        document.querySelector(
+          "#personDetails > div:nth-child(9) > div:nth-child(2) > div:nth-child(3) > div:nth-child(1) > div > span",
+        )?.innerText || "N/A",
+    },
+    {
+      number:
+        document.querySelector(
+          "#personDetails > div:nth-child(9) > div:nth-child(2) > div:nth-child(3) > div:nth-child(2) > div > a > span",
+        )?.innerText || "N/A",
+      type:
+        document.querySelector(
+          "#personDetails > div:nth-child(9) > div:nth-child(2) > div:nth-child(3) > div:nth-child(2) > div > span",
+        )?.innerText || "N/A",
+    },
+    // Add the mobile phone number using the function
+    {
+      number: getPhoneNumber(mobilePhoneSelectors),
+      type: "Mobile", // Assuming this is a mobile number
+    },
+  ]
+
+  // Extract emails by looping through possible child elements
+  const possibleEmailDivs = [11, 12, 13] // Possible indices for email elements
   let emails = []
-  const emailSection = findSectionContainer("Email Addresses")
-  if (emailSection) {
-    // Emails can be in links or just divs
-    const emailElements = Array.from(emailSection.querySelectorAll('a[href*="mailto:"], .row.pl-sm-2 > .col > div'));
-    emailElements.forEach((el) => {
-      const emailText = el.innerText.trim()
-      if (emailText && emailText.includes('@') && !emailText.toLowerCase().includes("support@truepeoplesearch.com")) {
-        emails.push(emailText)
+  const unwantedEmails = new Set(["support@truepeoplesearch.com"]) // Set of unwanted emails
+
+  // Loop through the possible child indices
+  possibleEmailDivs.forEach((index) => {
+    // Check for the first email element
+    const emailElement1 = document.querySelector(
+      `#personDetails > div:nth-child(${index}) > div.col-12.col-sm-11.pl-sm-1 > div:nth-child(2) > div > div`,
+    )
+    if (emailElement1) {
+      const emailText1 = emailElement1.innerText.trim()
+      if (emailText1.includes("@") && !unwantedEmails.has(emailText1) && !emails.includes(emailText1)) {
+        emails.push(emailText1)
       }
-    })
-  }
-  // Get unique emails and limit to 3
-  emails = [...new Set(emails)].slice(0, 3)
-  const finalEmails = []
-  for (let i = 0; i < 3; i++) {
-    finalEmails.push(emails[i] || "N/A")
+    }
+
+    // Check for the second email element
+    const emailElement2 = document.querySelector(
+      `#personDetails > div:nth-child(${index}) > div.col-12.col-sm-11.pl-sm-1 > div:nth-child(3) > div > div`,
+    )
+    if (emailElement2) {
+      const emailText2 = emailElement2.innerText.trim()
+      if (emailText2.includes("@") && !unwantedEmails.has(emailText2) && !emails.includes(emailText2)) {
+        emails.push(emailText2)
+      }
+    }
+
+    // Check for the third email element
+    const emailElement3 = document.querySelector(
+      `#personDetails > div:nth-child(${index}) > div.col-12.col-sm-11.pl-sm-1 > div:nth-child(4) > div > div`,
+    )
+    if (emailElement3) {
+      const emailText3 = emailElement3.innerText.trim()
+      if (emailText3.includes("@") && !unwantedEmails.has(emailText3) && !emails.includes(emailText3)) {
+        emails.push(emailText3)
+      }
+    }
+  })
+
+  // Limit to the first three unique emails
+  emails = emails.slice(0, 3)
+
+  // Filter wireless numbers and shift them to the left
+  const filteredNumbers = phoneNumbers
+    .filter((phone) => phone.type === "Wireless") // Keep only wireless numbers
+    .map((phone) => phone.number) // Extract the number
+
+  // Ensure the result has exactly 4 slots, filling missing numbers with "N/A"
+  while (filteredNumbers.length < 4) {
+    filteredNumbers.push("N/A")
   }
 
-  // --- Final Data Assembly ---
-  let city = ""
-  let state = ""
+  // Parse location into city and state
+  let city = "",
+    state = ""
   if (location && location !== "N/A") {
     const parts = location.split(", ")
     city = parts[0] || ""
     state = parts[1] || ""
   }
 
+  // Prepare data for storage
   const data = {
-    Name: name,
-    Location: location,
+    Name: name || "", // Return empty string if name is missing
+    Location: location || "", // Return empty string if location is missing
     City: city,
     State: state,
-    Address: address,
-    Phone1: finalPhones[0],
-    Phone2: finalPhones[1],
-    Phone3: finalPhones[2],
-    Phone4: finalPhones[3],
-    Email1: finalEmails[0],
-    Email2: finalEmails[1],
-    Email3: finalEmails[2],
+    Address: address || "",
+    Phone1: filteredNumbers[0] || "", // Return empty string if missing
+    Phone2: filteredNumbers[1] || "", // Return empty string if missing
+    Phone3: filteredNumbers[2] || "", // Return empty string if missing
+    Phone4: filteredNumbers[3] || "", // Return empty string if missing
+    Email1: emails[0] || "", // First email
+    Email2: emails[1] || "", // Second email
+    Email3: emails[2] || "", // Third email
     ScrapedAt: new Date().toISOString(),
   }
 
-  console.log("Scraped data (new logic):", data);
+  console.log("Scraped data:", data)
 
-  // Send data to background script only if a name was found
-  if (typeof chrome !== "undefined" && typeof chrome.runtime !== "undefined" && name !== "N/A") {
+  // Send data to background script
+  if (typeof chrome !== "undefined" && typeof chrome.runtime !== "undefined") {
     chrome.runtime.sendMessage({ type: "store_data", data }, (response) => {
       if (response?.success) {
         console.log("Data sent to background.js for storage.")
@@ -599,10 +711,6 @@ window.addEventListener("load", () => {
       }
     })
   } else {
-    if (name === "N/A") {
-        console.warn("Scraping did not find a name. Data not sent.");
-    } else {
-        console.warn("Chrome runtime is not available. The extension may not be running in a Chrome environment.")
-    }
+    console.warn("Chrome runtime is not available. The extension may not be running in a Chrome environment.")
   }
-})();
+})()

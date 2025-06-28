@@ -241,6 +241,9 @@ if (typeof window.csvProcessor === "undefined") {
       // Define the headers for the new data we added.
       const tpsDataHeaders = [
         "TPS_Name",
+        "TPS_Location",
+        "TPS_City",
+        "TPS_State",
         "TPS_Address",
         "TPS_Phone1",
         "TPS_Phone2",
@@ -541,6 +544,9 @@ if (typeof window.csvProcessor === "undefined") {
     // Define the headers for the new data we added.
     const tpsDataHeaders = [
       "TPS_Name",
+      "TPS_Location",
+      "TPS_City",
+      "TPS_State",
       "TPS_Address",
       "TPS_Phone1",
       "TPS_Phone2",
