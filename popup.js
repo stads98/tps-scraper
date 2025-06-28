@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const clearButton = document.getElementById("clear-btn")
   const csvButton = document.getElementById("csv-btn")
   const captchaDelaySelect = document.getElementById("captcha-delay")
+  const exportProcessedCsvButton = document.getElementById("export-processed-csv-btn")
 
   // Function to show loading state
   function showLoading() {
@@ -14,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
     exportButton.disabled = true
     clearButton.disabled = true
     csvButton.disabled = true
+    exportProcessedCsvButton.disabled = true
   }
 
   // Function to hide loading state
@@ -22,6 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
     exportButton.disabled = false
     clearButton.disabled = false
     csvButton.disabled = false
+    exportProcessedCsvButton.disabled = false
   }
 
   // Function to show status message
@@ -63,7 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Function to update the UI with current data
   function updateUI() {
     // Get the stored data and update the contact count
-    chrome.storage.local.get("scrapedData", (result) => {
+    chrome.storage.local.get(["scrapedData", "csvProcessingData"], (result) => {
       const scrapedData = result.scrapedData || []
       const contactCount = scrapedData.length
 
@@ -81,6 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Enable/disable export button based on data availability
       exportButton.disabled = contactCount === 0
+      exportProcessedCsvButton.disabled = !result.csvProcessingData
     })
   }
 
@@ -126,6 +130,19 @@ document.addEventListener("DOMContentLoaded", () => {
   csvButton.addEventListener("click", () => {
     // Open the CSV uploader page in a new tab
     chrome.tabs.create({ url: "csv-uploader.html" })
+  })
+
+  // Add event listener for the new export processed CSV button
+  exportProcessedCsvButton.addEventListener("click", () => {
+    showLoading()
+    chrome.runtime.sendMessage({ type: "export_processed_csv_from_popup" }, (response) => {
+      hideLoading()
+      if (response?.success) {
+        showStatus("Processed data exported successfully!")
+      } else {
+        showStatus(`Export failed: ${response?.message || "Unknown error"}`, true)
+      }
+    })
   })
 
   // Check for active tab on TruePeopleSearch

@@ -15,6 +15,65 @@ let currentProxy = null
 const currentProxyIndex = 0
 let currentProcessingUrl = null
 
+// Function to generate an enriched CSV string from processed data
+function generateEnrichedCsvString(data, originalHeaders) {
+  // Define the headers for the new data we added.
+  const tpsDataHeaders = [
+    "TPS_Name",
+    "TPS_Location",
+    "TPS_City",
+    "TPS_State",
+    "TPS_Address",
+    "TPS_Phone1",
+    "TPS_Phone2",
+    "TPS_Phone3",
+    "TPS_Phone4",
+    "TPS_Email1",
+    "TPS_Email2",
+    "TPS_Email3",
+    "TPS_ScrapedAt",
+  ]
+
+  // The final list of headers is the original ones plus our new ones.
+  const finalHeaders = [...originalHeaders]
+  tpsDataHeaders.forEach((h) => {
+    if (!finalHeaders.includes(h)) {
+      finalHeaders.push(h)
+    }
+  })
+
+  // Also include the internal processing fields for reference
+  if (!finalHeaders.includes("_tpsSearchUrl")) finalHeaders.push("_tpsSearchUrl")
+  if (!finalHeaders.includes("_tpsProcessed")) finalHeaders.push("_tpsProcessed")
+
+  // Helper to escape values for CSV
+  const escapeCsvValue = (value) => {
+    if (value === null || value === undefined) {
+      return '""'
+    }
+    const stringValue = String(value)
+    if (stringValue.includes('"') || stringValue.includes(",") || stringValue.includes("\n")) {
+      return `"${stringValue.replace(/"/g, '""')}"`
+    }
+    return stringValue
+  }
+
+  // Create the header row for the CSV file.
+  const headerRow = finalHeaders.map(escapeCsvValue).join(",")
+
+  // Create the data rows.
+  const dataRows = data.map((row) => {
+    return finalHeaders
+      .map((header) => {
+        return escapeCsvValue(row[header])
+      })
+      .join(",")
+  })
+
+  // Combine header and data rows.
+  return [headerRow, ...dataRows].join("\n")
+}
+
 // Proxy handling functions directly in background script
 // These replace the window.proxyHandler references
 const proxyHandler = {
@@ -546,41 +605,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     })
     return true
-  } else if (message.type === "export_processed_csv") {
-    // Export the processed CSV data
-    try {
-      if (!message.data || !message.data.length) {
-        sendResponse({ success: false, message: "No data to export." })
-        return true
+  } else if (message.type === "export_processed_csv_from_popup") {
+    chrome.storage.local.get(["originalCsvHeaders", "csvProcessingData"], (result) => {
+      if (!result.csvProcessingData || !result.csvProcessingData.data || result.csvProcessingData.data.length === 0) {
+        sendResponse({ success: false, message: "No processed data found to export." })
+        return
       }
 
-      // Generate CSV content
-      const headers = Object.keys(message.data[0])
-      const csvHeader = headers.join(",") + "\r\n"
+      const originalHeaders = result.originalCsvHeaders || []
+      const finalData = result.csvProcessingData.data
+      const csvString = generateEnrichedCsvString(finalData, originalHeaders)
 
-      // Convert data to CSV rows
-      const csvRows = message.data.map((row) => {
-        return headers.map((header) => escapeCsvValue(row[header])).join(",")
-      })
-
-      // Join rows with Windows-style line endings
-      const csvContent = csvRows.join("\r\n")
-
-      // Combine header and content
-      const csv = csvHeader + csvContent
-
-      // Generate filename with date
       const date = new Date().toISOString().split("T")[0]
       const filename = `tps_processed_data_${date}.csv`
-
-      // Add BOM for proper UTF-8 encoding in Excel
       const bomPrefix = "\uFEFF"
-      const csvWithBOM = bomPrefix + csv
-
-      // Use Data URI approach
+      const csvWithBOM = bomPrefix + csvString
       const dataUri = "data:text/csv;charset=utf-8," + encodeURIComponent(csvWithBOM)
 
-      // Download the file
       chrome.downloads.download(
         {
           url: dataUri,
@@ -589,18 +630,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         },
         (downloadId) => {
           if (chrome.runtime.lastError) {
-            console.error("Download error:", chrome.runtime.lastError.message)
             sendResponse({ success: false, message: chrome.runtime.lastError.message })
           } else {
-            console.log("Download started with ID:", downloadId)
             sendResponse({ success: true })
           }
         },
       )
-    } catch (error) {
-      console.error("Error exporting processed CSV:", error)
-      sendResponse({ success: false, message: error.message })
-    }
+    })
     return true
   } else if (message.type === "cloudflare_captcha_detected") {
     // Handle CAPTCHA detection
@@ -788,6 +824,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })
 
     return true // Keep the message channel open for the async response
+  } else if (message.type === "apply_proxy") {
+    if (message.proxy) {
+      applyAndTrackProxy(message.proxy).then((success) => {
+        sendResponse({ success: success })
+      })
+    } else {
+      sendResponse({ success: false, error: "No proxy provided." })
+    }
+    return true // async
   }
 })
 
@@ -1133,7 +1178,7 @@ chrome.webRequest.onAuthRequired.addListener(
           })
         }
       })
-      return true // Keep the channel open for the async response
+      return true // Keep the message channel open for the async response
     }
     return false // Let Chrome handle non-proxy auth
   },
@@ -1194,7 +1239,7 @@ function setupProxyAuthHandler() {
             })
           }
         })
-        return true // Keep the channel open for the async response
+        return true // Keep the message channel open for the async response
       }
       return false // Let Chrome handle non-proxy auth
     },

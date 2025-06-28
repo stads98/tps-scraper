@@ -303,8 +303,11 @@ document.addEventListener("DOMContentLoaded", () => {
   function generateProxyPreviewTable(proxies) {
     const proxyPreviewTable = document.getElementById("proxyPreviewTable")
     const proxyPreviewContainer = document.getElementById("proxyPreviewContainer")
+    const proxyPreviewTitle = proxyPreviewContainer.querySelector("h4")
 
     if (!proxyPreviewTable || !proxyPreviewContainer) return
+
+    proxyPreviewTitle.textContent = "Proxy Preview"
 
     // Clear existing table
     proxyPreviewTable.innerHTML = ""
@@ -844,7 +847,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Add a special handler for checking CAPTCHA status directly in processNextRecord
   // Update processNextRecord to handle proxy rotation
-  function processNextRecord() {
+  async function processNextRecord() {
     if (!processingActive) return
 
     // Check if we've processed all records
@@ -855,12 +858,8 @@ document.addEventListener("DOMContentLoaded", () => {
       showStatus("All records have been processed. You can export the results now.", "success")
 
       // Clear proxy settings when done
-      if (proxyData && proxyData.length > 0 && window.proxyHandler) {
-        window.proxyHandler.clearProxy().then(() => {
-          if (typeof chrome !== "undefined" && chrome.storage) {
-            chrome.storage.local.set({ currentProxy: null })
-          }
-        })
+      if (proxyData && proxyData.length > 0 && typeof chrome !== "undefined" && chrome.runtime) {
+        chrome.runtime.sendMessage({ type: "clear_proxy" })
       }
 
       return
@@ -903,19 +902,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
           // Check if we need to rotate proxy
           if (proxyData && proxyData.length > 0 && currentProcessingIndex % proxyChangeRows === 0) {
-            // Get the next proxy
             const nextProxyIndex = Math.floor(currentProcessingIndex / proxyChangeRows) % proxyData.length
             const nextProxy = proxyData[nextProxyIndex]
 
-            // Apply the proxy
-            if (window.proxyHandler) {
-              try {
-                await window.proxyHandler.applyProxy(nextProxy)
-                showStatus(`Applied proxy: ${nextProxy.host}:${nextProxy.port}`, "success")
-              } catch (error) {
-                console.error("Error applying proxy:", error)
-                showStatus(`Error applying proxy: ${error.message}`, "error")
-              }
+            // Apply the proxy by sending a message to the background script
+            if (typeof chrome !== "undefined" && chrome.runtime) {
+              await new Promise((resolve) => {
+                chrome.runtime.sendMessage({ type: "apply_proxy", proxy: nextProxy }, (response) => {
+                  if (response && response.success) {
+                    showStatus(`Applied proxy: ${nextProxy.host}:${nextProxy.port}`, "success")
+                  } else {
+                    showStatus(`Error applying proxy: ${response?.error || "Unknown error"}`, "error")
+                  }
+                  resolve()
+                })
+              })
             }
           }
 
@@ -937,8 +938,8 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log(`Processing record ${currentProcessingIndex + 1}: ${record._tpsSearchUrl}`)
 
         // Get the current tab ID to be used as the 'previous' tab later
-        chrome.storage.local.get('currentProcessingTab', (result) => {
-          const previousTabId = result.currentProcessingTab;
+        chrome.storage.local.get("currentProcessingTab", (result) => {
+          const previousTabId = result.currentProcessingTab
 
           // Store the current processing URL and index
           chrome.storage.local.set(
@@ -963,7 +964,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   chrome.storage.local.set({
                     currentProcessingTab: newTab.id,
                     previousProcessingTab: previousTabId,
-                  });
+                  })
 
                   // Increment the index
                   currentProcessingIndex++
@@ -977,7 +978,7 @@ document.addEventListener("DOMContentLoaded", () => {
               }
             },
           )
-        });
+        })
       } else {
         // If chrome is not defined, just log the URL and increment the index
         const record = processedData[currentProcessingIndex]
