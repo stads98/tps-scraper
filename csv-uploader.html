@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CSV Uploader - TruePeopleSearch Scraper</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+      width: 600px;
+    }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    
+    .logo {
+      width: 32px;
+      height: 32px;
+      margin-right: 12px;
+    }
+    
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+    
+    .card {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .step {
+      margin-bottom: 25px;
+    }
+    
+    .step-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .step-number {
+      background-color: #4CAF50;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    
+    .step-title {
+      font-weight: 600;
+      font-size: 16px;
+    }
+    
+    .step-content {
+      margin-left: 34px;
+    }
+    
+    .file-upload {
+      border: 2px dashed #ccc;
+      border-radius: 6px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .file-upload:hover {
+      border-color: #4CAF50;
+    }
+    
+    .file-upload.active {
+      border-color: #4CAF50;
+      background-color: rgba(76, 175, 80, 0.1);
+    }
+    
+    .file-upload input {
+      display: none;
+    }
+    
+    .mapping-container {
+      margin-top: 15px;
+    }
+    
+    .mapping-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .mapping-label {
+      width: 120px;
+      font-weight: 500;
+    }
+    
+    select {
+      flex: 1;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    
+    .delay-container {
+      display: flex;
+      align-items: center;
+      margin-top: 15px;
+    }
+    
+    .delay-label {
+      width: 120px;
+      font-weight: 500;
+    }
+    
+    .delay-slider {
+      flex: 1;
+      margin: 0 10px;
+    }
+    
+    .delay-value {
+      width: 40px;
+      text-align: center;
+      font-weight: 500;
+    }
+    
+    button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    button:hover {
+      opacity: 0.9;
+    }
+    
+    .btn-primary {
+      background-color: #4CAF50;
+      color: white;
+    }
+    
+    .btn-secondary {
+      background-color: #f5f5f5;
+      color: #333;
+      margin-right: 10px;
+    }
+    
+    .icon {
+      margin-right: 6px;
+      width: 16px;
+      height: 16px;
+    }
+    
+    .preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      max-height: 200px;
+      overflow-y: auto;
+      display: block;
+    }
+    
+    .preview-table th, .preview-table td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+      font-size: 12px;
+    }
+    
+    .preview-table th {
+      background-color: #f5f5f5;
+      position: sticky;
+      top: 0;
+    }
+    
+    .preview-table tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    
+    .status {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .status.success {
+      background-color: rgba(76, 175, 80, 0.1);
+      color: #2e7d32;
+    }
+    
+    .status.error {
+      background-color: rgba(244, 67, 54, 0.1);
+      color: #d32f2f;
+    }
+    
+    .progress-container {
+      margin-top: 15px;
+    }
+    
+    .progress-bar {
+      height: 10px;
+      background-color: #e0e0e0;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background-color: #4CAF50;
+      width: 0%;
+      transition: width 0.3s;
+    }
+    
+    .progress-text {
+      margin-top: 5px;
+      font-size: 12px;
+      text-align: center;
+    }
+    
+    .button-container {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+    
+    .hidden {
+      display: none;
+    }
+
+  .preview-container {
+    margin-top: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  
+  .preview-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .preview-table th, .preview-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+    font-size: 12px;
+  }
+  
+  .preview-table th {
+    background-color: #f5f5f5;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  
+  .preview-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+  
+  .preview-table tr:hover {
+    background-color: #f1f1f1;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <img src="icon.png" alt="Logo" class="logo">
+    <h2>TruePeopleSearch CSV Uploader</h2>
+  </div>
+  
+  <div class="card">
+    <div class="step">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <div class="step-title">Upload CSV File</div>
+      </div>
+      <div class="step-content">
+        <div class="file-upload" id="fileUploadArea">
+          <input type="file" id="csvFileInput" accept=".csv" style="opacity: 0; position: absolute;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <p id="uploadInstructions">Click to select or drag and drop a CSV file</p>
+          <p id="selectedFileName" class="hidden"></p>
+          <button id="directUploadButton" class="btn-primary" style="margin-top: 10px; display: inline-block;">Select CSV File</button>
+        </div>
+        <div id="csvPreviewContainer" class="hidden">
+          <h4>CSV Preview</h4>
+          <div class="preview-table-container">
+            <table id="csvPreviewTable" class="preview-table">
+              <!-- Preview content will be inserted here -->
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="step" id="mappingStep" style="display: none;">
+      <div class="step-header">
+        <div class="step-number">2</div>
+        <div class="step-title">Map CSV Columns</div>
+      </div>
+      <div class="step-content">
+        <p>Map your CSV columns to the required fields:</p>
+        
+        <div class="mapping-container">
+          <div class="mapping-row">
+            <div class="mapping-label">Full Name:</div>
+            <select id="fullNameColumn">
+              <option value="">-- Select Column --</option>
+            </select>
+          </div>
+          
+          <div class="mapping-row">
+            <div class="mapping-label">Location:</div>
+            <select id="locationColumn">
+              <option value="">-- Select Column --</option>
+            </select>
+          </div>
+          
+          <!-- Hidden fields that will be auto-populated based on the main selections -->
+          <div style="display: none;">
+            <select id="firstNameColumn">
+              <option value="">-- Select Column --</option>
+            </select>
+            
+            <select id="lastNameColumn">
+              <option value="">-- Select Column --</option>
+            </select>
+            
+            <select id="cityColumn">
+              <option value="">-- Select Column --</option>
+            </select>
+            
+            <select id="stateColumn">
+              <option value="">-- Select Column --</option>
+            </select>
+            
+            <select id="zipColumn">
+              <option value="">-- Select Column --</option>
+            </select>
+            
+            <select id="locationFormat">
+              <option value="default">Auto-detect best format</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="delay-container">
+          <div class="delay-label">Delay:</div>
+          <input type="range" id="delaySlider" class="delay-slider" min="1" max="30" value="5">
+          <div class="delay-value" id="delayValue">5s</div>
+        </div>
+      </div>
+    </div>
+    
+<!-- Add preview section for mapped fields -->
+<div class="step" id="previewStep" style="display: none;">
+  <div class="step-header">
+    <div class="step-number">3</div>
+    <div class="step-title">Preview Mapped Fields</div>
+  </div>
+  <div class="step-content">
+    <p>Review how your data will be processed:</p>
+    
+    <div class="preview-container">
+      <table class="preview-table" id="mappingPreviewTable">
+        <thead>
+          <tr>
+            <th>Row</th>
+            <th>Full Name</th>
+            <th>Location</th>
+            <th>Generated URL</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Preview content will be inserted here -->
+        </tbody>
+      </table>
+    </div>
+    
+    <div class="status" id="previewStatus" style="display: none;"></div>
+  </div>
+</div>
+    
+<!-- Add new step for proxy settings after the preview step -->
+<div class="step" id="proxyStep" style="display: none;">
+  <div class="step-header">
+    <div class="step-number">4</div>
+    <div class="step-title">Proxy Settings</div>
+  </div>
+  <div class="step-content">
+    <p>Upload a proxy list file (.txt) with format: IP:PORT:USERNAME:PASSWORD</p>
+    
+    <div class="file-upload" id="proxyFileUploadArea">
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="17 8 12 3 7 8"></polyline>
+    <line x1="12" y1="3" x2="12" y2="15"></line>
+  </svg>
+  <p>Select a proxy file (.txt format)</p>
+  <p id="selectedProxyFileName" class="hidden"></p>
+  <div style="margin-top: 10px;">
+    <label for="proxyFileInput" class="btn-primary" style="display: inline-block; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: 500; background-color: #4CAF50; color: white;">
+      Select Proxy File
+    </label>
+    <input type="file" id="proxyFileInput" accept=".txt" style="display: none;">
+  </div>
+</div>
+    
+    
+<div id="proxyPreviewContainer" class="hidden" style="margin-top: 15px;">
+  <h4>Proxy Preview (First 5 entries)</h4>
+  <div class="preview-container">
+    <table id="proxyPreviewTable" class="preview-table">
+      <!-- Preview content will be inserted here -->
+    </table>
+  </div>
+  <div class="status" id="proxyPreviewStatus" style="display: none;"></div>
+</div>
+    
+    <div class="proxy-settings" style="margin-top: 15px;">
+      <div class="mapping-row">
+        <div class="mapping-label">Change proxy after:</div>
+        <input type="number" id="proxyChangeRows" min="1" value="5" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+        <span style="margin-left: 8px;">rows</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add new step for CAPTCHA coordinates -->
+<div class="step" id="captchaStep" style="display: none;">
+  <div class="step-header">
+    <div class="step-number">5</div>
+    <div class="step-title">CAPTCHA Auto-Click Settings</div>
+  </div>
+  <div class="step-content">
+    <p>Enter coordinates where the extension should click when a CAPTCHA is detected:</p>
+    
+    <div class="captcha-settings" style="margin-top: 15px;">
+      <h4>Primary Click Coordinates</h4>
+      <div style="display: flex; gap: 10px;">
+        <div class="mapping-row">
+          <div class="mapping-label">X:</div>
+          <input type="number" id="captchaX1" min="0" value="400" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+        </div>
+        <div class="mapping-row">
+          <div class="mapping-label">Y:</div>
+          <input type="number" id="captchaY1" min="0" value="300" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+        </div>
+      </div>
+      
+      <h4 style="margin-top: 15px;">Secondary Click Coordinates (Backup)</h4>
+      <div style="display: flex; gap: 10px;">
+        <div class="mapping-row">
+          <div class="mapping-label">X:</div>
+          <input type="number" id="captchaX2" min="0" value="400" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+        </div>
+        <div class="mapping-row">
+          <div class="mapping-label">Y:</div>
+          <input type="number" id="captchaY2" min="0" value="400" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+        </div>
+      </div>
+      
+      <div style="margin-top: 15px; background-color: #fff3e0; padding: 10px; border-radius: 4px;">
+        <p style="margin: 0; font-size: 12px;">
+          <strong>Note:</strong> If both clicks fail to solve the CAPTCHA, the extension will wait for manual intervention.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    <div class="step" id="processStep" style="display: none;">
+      <div class="step-header">
+        <div class="step-number">6</div>
+        <div class="step-title">Process and Open URLs</div>
+      </div>
+      <div class="step-content">
+        <p>Click "Start Processing" to begin opening TruePeopleSearch URLs one by one.</p>
+        <p>The extension will automatically scrape data when you navigate to a profile page.</p>
+        
+        <div class="progress-container" id="progressContainer" style="display: none;">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-text" id="progressText">Processing 0 of 0 records</div>
+        </div>
+        
+        <div class="status" id="statusMessage" style="display: none;"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="button-container">
+    <button id="backButton" class="btn-secondary" style="display: none;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      Back
+    </button>
+    <button id="nextButton" class="btn-primary" disabled>
+      Next
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" style="margin-right: 0; margin-left: 6px;">
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+        <polyline points="12 5 19 12 12 19"></polyline>
+      </svg>
+    </button>
+    <button id="startButton" class="btn-primary" style="display: none;">
+      Start Processing
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" style="margin-right: 0; margin-left: 6px;">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+    </button>
+    <button id="exportButton" class="btn-primary" style="display: none;">
+      Export Results
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" style="margin-right: 0; margin-left: 6px;">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+    </button>
+  </div>
+  
+  <script src="csv-processor.js"></script>
+  <script src="proxy-handler.js"></script>
+  <script src="csv-uploader.js"></script>
+</body>
+</html>

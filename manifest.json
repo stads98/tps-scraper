@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "True People Search Scraper",
+  "version": "1.4.0",
+  "description": "Automatically scrape contact information from True People Search and export it to a CSV file.",
+  "permissions": [
+    "scripting",
+    "activeTab",
+    "downloads",
+    "storage",
+    "tabs",
+    "proxy",
+    "webRequest",
+    "webRequestAuthProvider"
+  ],
+  "host_permissions": ["https://www.truepeoplesearch.com/*", "<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.truepeoplesearch.com/find/person/*", "https://www.truepeoplesearch.com/results*"],
+      "js": ["content.js"]
+    }
+  ]
+}
