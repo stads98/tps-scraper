@@ -411,34 +411,23 @@
     <div class="step-title">Proxy Settings</div>
   </div>
   <div class="step-content">
-    <p>Upload a proxy list file (.txt) with format: IP:PORT:USERNAME:PASSWORD</p>
+    <p>Enter your Webshare API key to fetch your proxy list automatically.</p>
     
-    <div class="file-upload" id="proxyFileUploadArea">
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-    <polyline points="17 8 12 3 7 8"></polyline>
-    <line x1="12" y1="3" x2="12" y2="15"></line>
-  </svg>
-  <p>Select a proxy file (.txt format)</p>
-  <p id="selectedProxyFileName" class="hidden"></p>
-  <div style="margin-top: 10px;">
-    <label for="proxyFileInput" class="btn-primary" style="display: inline-block; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: 500; background-color: #4CAF50; color: white;">
-      Select Proxy File
-    </label>
-    <input type="file" id="proxyFileInput" accept=".txt" style="display: none;">
-  </div>
-</div>
+    <div class="api-key-container" style="display: flex; align-items: center; gap: 10px; margin-top: 15px;">
+      <label for="webshareApiKey" style="font-weight: 500;">API Key:</label>
+      <input type="password" id="webshareApiKey" placeholder="Enter your Webshare API Key" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+      <button id="fetchProxiesButton" class="btn-primary">Fetch & Test Proxies</button>
+    </div>
     
-    
-<div id="proxyPreviewContainer" class="hidden" style="margin-top: 15px;">
-  <h4>Proxy Preview (First 5 entries)</h4>
-  <div class="preview-container">
-    <table id="proxyPreviewTable" class="preview-table">
-      <!-- Preview content will be inserted here -->
-    </table>
-  </div>
-  <div class="status" id="proxyPreviewStatus" style="display: none;"></div>
-</div>
+    <div id="proxyPreviewContainer" class="hidden" style="margin-top: 15px;">
+      <h4>Proxy Preview (First 5 entries)</h4>
+      <div class="preview-container">
+        <table id="proxyPreviewTable" class="preview-table">
+          <!-- Preview content will be inserted here -->
+        </table>
+      </div>
+      <div class="status" id="proxyPreviewStatus" style="display: none;"></div>
+    </div>
     
     <div class="proxy-settings" style="margin-top: 15px;">
       <div class="mapping-row">
@@ -449,53 +438,10 @@
     </div>
   </div>
 </div>
-
-<!-- Add new step for CAPTCHA coordinates -->
-<div class="step" id="captchaStep" style="display: none;">
-  <div class="step-header">
-    <div class="step-number">5</div>
-    <div class="step-title">CAPTCHA Auto-Click Settings</div>
-  </div>
-  <div class="step-content">
-    <p>Enter coordinates where the extension should click when a CAPTCHA is detected:</p>
-    
-    <div class="captcha-settings" style="margin-top: 15px;">
-      <h4>Primary Click Coordinates</h4>
-      <div style="display: flex; gap: 10px;">
-        <div class="mapping-row">
-          <div class="mapping-label">X:</div>
-          <input type="number" id="captchaX1" min="0" value="400" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
-        </div>
-        <div class="mapping-row">
-          <div class="mapping-label">Y:</div>
-          <input type="number" id="captchaY1" min="0" value="300" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
-        </div>
-      </div>
-      
-      <h4 style="margin-top: 15px;">Secondary Click Coordinates (Backup)</h4>
-      <div style="display: flex; gap: 10px;">
-        <div class="mapping-row">
-          <div class="mapping-label">X:</div>
-          <input type="number" id="captchaX2" min="0" value="400" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
-        </div>
-        <div class="mapping-row">
-          <div class="mapping-label">Y:</div>
-          <input type="number" id="captchaY2" min="0" value="400" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
-        </div>
-      </div>
-      
-      <div style="margin-top: 15px; background-color: #fff3e0; padding: 10px; border-radius: 4px;">
-        <p style="margin: 0; font-size: 12px;">
-          <strong>Note:</strong> If both clicks fail to solve the CAPTCHA, the extension will wait for manual intervention.
-        </p>
-      </div>
-    </div>
-  </div>
-</div>
     
     <div class="step" id="processStep" style="display: none;">
       <div class="step-header">
-        <div class="step-number">6</div>
+        <div class="step-number">5</div>
         <div class="step-title">Process and Open URLs</div>
       </div>
       <div class="step-content">

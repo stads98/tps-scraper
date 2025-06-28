@@ -42,13 +42,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const mappingPreviewTable = document.getElementById("mappingPreviewTable")
   const previewStatus = document.getElementById("previewStatus")
 
-  // Add these variables for proxy and CAPTCHA handling
+  // Add these variables for proxy handling
   let proxyData = null
   let proxyChangeRows = 5
-  let captchaCoordinates = {
-    primary: { x: 400, y: 300 },
-    secondary: { x: 400, y: 400 },
-  }
   const currentProxyIndex = 0
   const rowsProcessedWithCurrentProxy = 0
 
@@ -186,19 +182,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Proxy file upload area click
-    const proxyFileUploadArea = document.getElementById("proxyFileUploadArea")
-    const proxyFileInput = document.getElementById("proxyFileInput")
-    const selectedProxyFileName = document.getElementById("selectedProxyFileName")
-    const proxyStep = document.getElementById("proxyStep")
-    const captchaStep = document.getElementById("captchaStep")
-
-    // Debug log for proxy elements
-    console.log("Proxy upload elements:", {
-      proxyFileUploadArea: proxyFileUploadArea ? "Found" : "Not found",
-      proxyFileInput: proxyFileInput ? "Found" : "Not found",
-    })
-
     // Add direct upload button event listener
     const directUploadButton = document.getElementById("directUploadButton")
     if (directUploadButton) {
@@ -215,59 +198,10 @@ document.addEventListener("DOMContentLoaded", () => {
       })
     }
 
-    if (proxyFileInput) {
-      // Only keep the file input change event listener
-      proxyFileInput.addEventListener("change", (e) => {
-        console.log("Proxy file input change event triggered")
-        if (e.target.files.length) {
-          handleProxyFileUpload(e.target.files[0])
-        }
-      })
-
-      // Keep drag and drop functionality on the upload area
-      if (proxyFileUploadArea) {
-        proxyFileUploadArea.addEventListener("dragover", (e) => {
-          e.preventDefault()
-          proxyFileUploadArea.classList.add("active")
-        })
-
-        proxyFileUploadArea.addEventListener("dragleave", () => {
-          proxyFileUploadArea.classList.remove("active")
-        })
-
-        proxyFileUploadArea.addEventListener("drop", (e) => {
-          e.preventDefault()
-          proxyFileUploadArea.classList.remove("active")
-
-          if (e.dataTransfer.files.length) {
-            handleProxyFileUpload(e.dataTransfer.files[0])
-          }
-        })
-      }
-    }
-
-    // Add a test proxy button
-    const testProxyButton = document.createElement("button")
-    testProxyButton.id = "testProxyButton"
-    testProxyButton.className = "btn-secondary"
-    testProxyButton.style.marginTop = "10px"
-    testProxyButton.style.marginLeft = "10px"
-    testProxyButton.style.display = "inline-block"
-    testProxyButton.innerHTML = "Test Proxy"
-    testProxyButton.addEventListener("click", (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      if (proxyData && proxyData.length > 0) {
-        testProxy()
-      } else {
-        showStatus("Please upload a proxy file first", "error")
-      }
-    })
-
-    // Find the proxy settings div to append the button
-    const proxySettings = document.querySelector(".proxy-settings")
-    if (proxySettings) {
-      proxySettings.appendChild(testProxyButton)
+    // Webshare API Key input and button
+    const fetchProxiesButton = document.getElementById("fetchProxiesButton")
+    if (fetchProxiesButton) {
+      fetchProxiesButton.addEventListener("click", fetchProxiesFromWebshare)
     }
 
     // Proxy change rows input
@@ -277,134 +211,92 @@ document.addEventListener("DOMContentLoaded", () => {
         proxyChangeRows = Number.parseInt(proxyChangeRowsInput.value, 10) || 5
       })
     }
+  }
 
-    // CAPTCHA coordinates inputs
-    const captchaX1Input = document.getElementById("captchaX1")
-    const captchaY1Input = document.getElementById("captchaY1")
-    const captchaX2Input = document.getElementById("captchaX2")
-    const captchaY2Input = document.getElementById("captchaY2")
+  // Function to fetch proxies from Webshare API
+  async function fetchProxiesFromWebshare() {
+    const apiKeyInput = document.getElementById("webshareApiKey")
+    const apiKey = apiKeyInput.value.trim()
 
-    if (captchaX1Input && captchaY1Input && captchaX2Input && captchaY2Input) {
-      captchaX1Input.addEventListener("change", updateCaptchaCoordinates)
-      captchaY1Input.addEventListener("change", updateCaptchaCoordinates)
-      captchaX2Input.addEventListener("change", updateCaptchaCoordinates)
-      captchaY2Input.addEventListener("change", updateCaptchaCoordinates)
+    if (!apiKey) {
+      showStatus("Please enter your Webshare API key.", "error")
+      return
     }
 
-    function updateCaptchaCoordinates() {
-      captchaCoordinates = {
-        primary: {
-          x: Number.parseInt(captchaX1Input.value, 10) || 400,
-          y: Number.parseInt(captchaY1Input.value, 10) || 300,
+    showStatus("Fetching proxies from Webshare...", "info")
+
+    try {
+      const response = await fetch("https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=100", {
+        headers: {
+          Authorization: `Token ${apiKey}`,
         },
-        secondary: {
-          x: Number.parseInt(captchaX2Input.value, 10) || 400,
-          y: Number.parseInt(captchaY2Input.value, 10) || 400,
-        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(`API request failed: ${errorData.detail || response.statusText}`)
       }
+
+      const data = await response.json()
+
+      if (!data.results || data.results.length === 0) {
+        showStatus("No proxies found in your Webshare account.", "error")
+        return
+      }
+
+      // Format proxies for the extension
+      proxyData = data.results.map((p) => ({
+        host: p.proxy_address,
+        port: p.port,
+        username: p.username,
+        password: p.password,
+        blocked: false,
+        lastUsed: null,
+      }))
+
+      showStatus(`Successfully fetched ${proxyData.length} proxies.`, "success")
+      generateProxyPreviewTable(proxyData)
+
+      // Automatically test the first proxy
+      if (proxyData.length > 0) {
+        testProxy(proxyData[0])
+      }
+    } catch (error) {
+      console.error("Error fetching proxies:", error)
+      showStatus(`Error fetching proxies: ${error.message}`, "error")
     }
   }
 
   // Function to test a proxy
-  function testProxy() {
-    if (!proxyData || proxyData.length === 0) {
-      showStatus("No proxy data available", "error")
+  function testProxy(proxy) {
+    if (!proxy) {
+      showStatus("No proxy available to test.", "error")
       return
     }
 
-    // Get the first proxy
-    const proxy = proxyData[0]
     showStatus(`Testing proxy ${proxy.host}:${proxy.port}...`, "info")
 
-    // Apply the proxy
     if (typeof chrome !== "undefined" && chrome.runtime) {
-      // First, ensure the proxy is stored in chrome.storage
-      chrome.storage.local.set({ currentProxy: proxy }, () => {
-        console.log("Stored proxy for testing:", proxy)
-
-        // Now test the proxy
-        chrome.runtime.sendMessage(
-          {
-            type: "test_proxy",
-            proxy: proxy,
-          },
-          (response) => {
-            if (response && response.success) {
-              showStatus(`Proxy test successful! IP: ${response.ip}`, "success")
-            } else {
-              showStatus(`Proxy test failed: ${response.error || "Unknown error"}`, "error")
-
-              // Show more detailed error information
-              console.error("Proxy test details:", {
-                proxy: proxy,
-                error: response ? response.error : "No response",
-                response: response,
-              })
-            }
-          },
-        )
-      })
+      chrome.runtime.sendMessage(
+        {
+          type: "test_proxy",
+          proxy: proxy,
+        },
+        (response) => {
+          const proxyPreviewStatus = document.getElementById("proxyPreviewStatus")
+          if (response && response.success) {
+            proxyPreviewStatus.textContent = `Proxy test successful! IP: ${response.ip}`
+            proxyPreviewStatus.className = "status success"
+          } else {
+            proxyPreviewStatus.textContent = `Proxy test failed: ${response.error || "Unknown error"}`
+            proxyPreviewStatus.className = "status error"
+          }
+          proxyPreviewStatus.style.display = "block"
+        },
+      )
     } else {
-      showStatus("Chrome runtime not available, cannot test proxy", "error")
+      showStatus("Chrome runtime not available, cannot test proxy.", "error")
     }
-  }
-
-  // Add function to handle proxy file upload
-  async function handleProxyFileUpload(file) {
-    if (!file || file.type !== "text/plain") {
-      showStatus("Please select a valid proxy file (.txt format)", "error")
-      return
-    }
-
-    try {
-      // Read the file content
-      const content = await readFileContent(file)
-
-      // Parse the proxy file
-      proxyData = window.proxyHandler.parseProxyFile(content)
-
-      if (proxyData.length === 0) {
-        showStatus("No valid proxies found in the file", "error")
-        return
-      }
-
-      // Update UI
-      const selectedProxyFileName = document.getElementById("selectedProxyFileName")
-      selectedProxyFileName.textContent = `${file.name} (${proxyData.length} proxies)`
-      selectedProxyFileName.classList.remove("hidden")
-
-      // Generate proxy preview table
-      generateProxyPreviewTable(proxyData)
-
-      // Enable next button if it was disabled
-      nextButton.disabled = false
-
-      showStatus(`Loaded ${proxyData.length} proxies successfully`, "success")
-    } catch (error) {
-      console.error("Error parsing proxy file:", error)
-      showStatus("Error parsing proxy file: " + error.message, "error")
-    }
-  }
-
-  // Function to read file content
-  function readFileContent(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-
-      reader.onload = (event) => {
-        try {
-          resolve(event.target.result)
-        } catch (error) {
-          reject(error)
-        }
-      }
-
-      reader.onerror = () => {
-        reject(new Error("Error reading the file"))
-      }
-
-      reader.readAsText(file)
-    })
   }
 
   // Function to generate proxy preview table
@@ -427,8 +319,11 @@ document.addEventListener("DOMContentLoaded", () => {
       headerRow.appendChild(th)
     })
 
-    proxyPreviewTable.appendChild(headerRow)
+    const thead = document.createElement("thead")
+    thead.appendChild(headerRow)
+    proxyPreviewTable.appendChild(thead)
 
+    const tbody = document.createElement("tbody")
     // Create data rows (limit to 5 for preview)
     const previewData = proxies.slice(0, 5)
     previewData.forEach((proxy) => {
@@ -450,8 +345,9 @@ document.addEventListener("DOMContentLoaded", () => {
       tdPassword.textContent = proxy.password ? "********" : ""
       tr.appendChild(tdPassword)
 
-      proxyPreviewTable.appendChild(tr)
+      tbody.appendChild(tr)
     })
+    proxyPreviewTable.appendChild(tbody)
 
     // Show preview container
     proxyPreviewContainer.classList.remove("hidden")
@@ -524,8 +420,11 @@ document.addEventListener("DOMContentLoaded", () => {
       th.textContent = header
       headerRow.appendChild(th)
     })
-    csvPreviewTable.appendChild(headerRow)
+    const thead = document.createElement("thead")
+    thead.appendChild(headerRow)
+    csvPreviewTable.appendChild(thead)
 
+    const tbody = document.createElement("tbody")
     // Create data rows (limit to 5 for preview)
     const previewData = csvData.data.slice(0, 5)
     previewData.forEach((row) => {
@@ -535,8 +434,9 @@ document.addEventListener("DOMContentLoaded", () => {
         td.textContent = row[header] || ""
         tr.appendChild(td)
       })
-      csvPreviewTable.appendChild(tr)
+      tbody.appendChild(tr)
     })
+    csvPreviewTable.appendChild(tbody)
 
     // Show preview container
     csvPreviewContainer.classList.remove("hidden")
@@ -692,14 +592,6 @@ document.addEventListener("DOMContentLoaded", () => {
         'Next <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" style="margin-right: 0; margin-left: 6px;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>'
       currentStep = 4
     } else if (currentStep === 4) {
-      // Move to CAPTCHA step
-      const captchaStep = document.getElementById("captchaStep")
-      captchaStep.style.display = "block"
-      nextButton.textContent = "Next"
-      nextButton.innerHTML =
-        'Next <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" style="margin-right: 0; margin-left: 6px;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>'
-      currentStep = 5
-    } else if (currentStep === 5) {
       // Process the data
       processCSVData()
 
@@ -707,15 +599,14 @@ document.addEventListener("DOMContentLoaded", () => {
       processStep.style.display = "block"
       nextButton.style.display = "none"
       startButton.style.display = "inline-flex"
-      currentStep = 6
+      currentStep = 5
 
       // Add CAPTCHA resume button if needed
       addCaptchaResumeButton()
 
-      // Save CAPTCHA coordinates to storage
+      // Save proxy settings to storage
       if (typeof chrome !== "undefined" && chrome.storage) {
         chrome.storage.local.set({
-          captchaCoordinates: captchaCoordinates,
           proxyChangeRows: proxyChangeRows,
         })
 
@@ -747,20 +638,15 @@ document.addEventListener("DOMContentLoaded", () => {
       currentStep = 3
     } else if (currentStep === 5) {
       // Move back to proxy step
-      const captchaStep = document.getElementById("captchaStep")
-      captchaStep.style.display = "none"
-      currentStep = 4
-    } else if (currentStep === 6) {
-      // Move back to CAPTCHA step
       processStep.style.display = "none"
-      const captchaStep = document.getElementById("captchaStep")
-      captchaStep.style.display = "block"
+      const proxyStep = document.getElementById("proxyStep")
+      proxyStep.style.display = "block"
       nextButton.style.display = "inline-flex"
       startButton.style.display = "none"
       exportButton.style.display = "none"
       progressContainer.style.display = "none"
       statusMessage.style.display = "none"
-      currentStep = 5
+      currentStep = 4
     }
   }
 

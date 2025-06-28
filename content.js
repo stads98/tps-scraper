@@ -128,91 +128,9 @@ function detectBlockedProxy() {
   return isBlocked || hasBlockingElements || isEmptyResults
 }
 
-// Add this function to handle CAPTCHA auto-clicking
-function attemptCaptchaAutoClick() {
-  console.log("Attempting to auto-click CAPTCHA")
-
-  // Get CAPTCHA coordinates from storage
-  chrome.storage.local.get(["captchaCoordinates"], (result) => {
-    if (!result.captchaCoordinates) {
-      console.log("No CAPTCHA coordinates found in storage")
-      return
-    }
-
-    const coordinates = result.captchaCoordinates
-    console.log("CAPTCHA coordinates:", coordinates)
-
-    // Try primary coordinates first
-    clickAtCoordinates(coordinates.primary.x, coordinates.primary.y)
-
-    // Wait 3 seconds and check if CAPTCHA is still present
-    setTimeout(() => {
-      if (detectCloudflareCaptcha()) {
-        console.log("Primary click failed, trying secondary coordinates")
-
-        // Try secondary coordinates
-        clickAtCoordinates(coordinates.secondary.x, coordinates.secondary.y)
-
-        // Wait another 3 seconds and check again
-        setTimeout(() => {
-          if (detectCloudflareCaptcha()) {
-            console.log("Both auto-clicks failed, waiting for manual intervention")
-            // Both clicks failed, continue with manual handling
-            handleCloudflareCaptcha()
-          } else {
-            console.log("Secondary click succeeded")
-            // Secondary click succeeded, notify background script
-            chrome.runtime.sendMessage({
-              type: "cloudflare_captcha_solved",
-              url: window.location.href,
-            })
-          }
-        }, 3000)
-      } else {
-        console.log("Primary click succeeded")
-        // Primary click succeeded, notify background script
-        chrome.runtime.sendMessage({
-          type: "cloudflare_captcha_solved",
-          url: window.location.href,
-        })
-      }
-    }, 3000)
-  })
-}
-
-// Function to simulate a click at specific coordinates
-function clickAtCoordinates(x, y) {
-  try {
-    console.log(`Clicking at coordinates: (${x}, ${y})`)
-
-    // Create a new mouse event
-    const clickEvent = new MouseEvent("click", {
-      view: window,
-      bubbles: true,
-      cancelable: true,
-      clientX: x,
-      clientY: y,
-    })
-
-    // Dispatch the event at the document level
-    document.elementFromPoint(x, y)?.dispatchEvent(clickEvent)
-
-    // Also try direct click on the element at those coordinates
-    const element = document.elementFromPoint(x, y)
-    if (element) {
-      element.click()
-    }
-  } catch (error) {
-    console.error("Error clicking at coordinates:", error)
-  }
-}
-
 // Update handleCloudflareCaptcha to try auto-clicking first
 function handleCloudflareCaptcha() {
   console.log("Cloudflare CAPTCHA detected!")
-
-  // First try auto-clicking
-  attemptCaptchaAutoClick()
 
   // The rest of the original function will run if auto-clicking fails
   // and is called from attemptCaptchaAutoClick
